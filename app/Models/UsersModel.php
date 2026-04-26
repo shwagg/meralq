@@ -45,4 +45,11 @@ class UsersModel extends Model
             ->groupEnd()
             ->first();
     }
+
+    public function listForAdmin(): array
+    {
+        return $this->select('id, fullname, username, email, role, createdAt')
+            ->orderBy('createdAt', 'DESC')
+            ->findAll();
+    }
 }

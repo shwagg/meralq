@@ -12,7 +12,12 @@ class AuditLogsModel extends Model
     protected $returnType       = 'array';
     protected $useSoftDeletes   = false;
     protected $protectFields    = true;
-    protected $allowedFields    = [];
+    protected $allowedFields    = [
+        'userId',
+        'action',
+        'description',
+        'createdAt',
+    ];
 
     protected bool $allowEmptyInserts = false;
     protected bool $updateOnlyChanged = true;
@@ -20,27 +25,25 @@ class AuditLogsModel extends Model
     protected array $casts = [];
     protected array $castHandlers = [];
 
-    // Dates
     protected $useTimestamps = false;
     protected $dateFormat    = 'datetime';
-    protected $createdField  = 'created_at';
-    protected $updatedField  = 'updated_at';
-    protected $deletedField  = 'deleted_at';
 
-    // Validation
-    protected $validationRules      = [];
-    protected $validationMessages   = [];
-    protected $skipValidation       = false;
-    protected $cleanValidationRules = true;
+    public function record(int $userId, string $action, string $description): bool
+    {
+        return $this->insert([
+            'userId'      => $userId,
+            'action'      => $action,
+            'description' => $description,
+            'createdAt'   => date('Y-m-d H:i:s'),
+        ]) !== false;
+    }
 
-    // Callbacks
-    protected $allowCallbacks = true;
-    protected $beforeInsert   = [];
-    protected $afterInsert    = [];
-    protected $beforeUpdate   = [];
-    protected $afterUpdate    = [];
-    protected $beforeFind     = [];
-    protected $afterFind      = [];
-    protected $beforeDelete   = [];
-    protected $afterDelete    = [];
+    public function latestWithUsers(int $limit = 50): array
+    {
+        return $this->select('audit_logs.id, audit_logs.action, audit_logs.description, audit_logs.createdAt, users.fullname, users.username, users.role')
+            ->join('users', 'users.id = audit_logs.userId', 'left')
+            ->orderBy('audit_logs.createdAt', 'DESC')
+            ->limit($limit)
+            ->findAll();
+    }
 }

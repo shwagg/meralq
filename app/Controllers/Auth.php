@@ -2,6 +2,7 @@
 
 namespace App\Controllers;
 
+use App\Models\AuditLogsModel;
 use App\Models\UsersModel;
 use CodeIgniter\HTTP\ResponseInterface;
 
@@ -51,6 +52,12 @@ class Auth extends BaseController
             'isLoggedIn' => true,
         ]);
 
+        (new AuditLogsModel())->record(
+            (int) $user['id'],
+            'login',
+            sprintf('%s signed in.', $user['fullname'])
+        );
+
         return $this->response->setJSON([
             'status'   => 'success',
             'message'  => 'Login successful.',
@@ -60,6 +67,17 @@ class Auth extends BaseController
 
     public function logout()
     {
+        $userId   = (int) $this->session->get('userId');
+        $fullname = (string) $this->session->get('fullname');
+
+        if ($userId > 0) {
+            (new AuditLogsModel())->record(
+                $userId,
+                'logout',
+                sprintf('%s signed out.', $fullname !== '' ? $fullname : 'A user')
+            );
+        }
+
         $this->session->destroy();
 
         return redirect()->to('/login');

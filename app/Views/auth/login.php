@@ -195,7 +195,7 @@
                                 <img class="auth-panel-logo" src="<?= base_url('assets/MeralKoo.svg') ?>" alt="MeralQ logo">
                             </div>
                             <h2>Sign in to continue</h2>
-                            <p class="subtitle">Use your username or email and password to enter the correct dashboard for your account role.</p>
+                            <p class="subtitle">Use your username or email and password to enter the MeralKoo Dashboard.</p>
 
                             <div id="loginAlert" class="alert d-none" role="alert"></div>
 
@@ -210,8 +210,6 @@
                                 </div>
                                 <button type="submit" class="btn btn-auth w-100" id="loginButton">Sign In</button>
                             </form>
-
-                            <p class="helper-copy mt-4 mb-0">This first screen is ready for real authentication and role-based redirection to the admin or normal user dashboard.</p>
                         </div>
                     </div>
                 </div>
