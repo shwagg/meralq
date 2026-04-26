@@ -46,4 +46,14 @@ class AuditLogsModel extends Model
             ->limit($limit)
             ->findAll();
     }
+
+    public function latestForUser(int $userId, int $limit = 25): array
+    {
+        return $this->select('audit_logs.id, audit_logs.action, audit_logs.description, audit_logs.createdAt')
+            ->where('audit_logs.userId', $userId)
+            ->orderBy('audit_logs.createdAt', 'DESC')
+            ->orderBy('audit_logs.id', 'DESC')
+            ->limit($limit)
+            ->findAll();
+    }
 }

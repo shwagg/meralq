@@ -12,7 +12,13 @@ class BillsModel extends Model
     protected $returnType       = 'array';
     protected $useSoftDeletes   = false;
     protected $protectFields    = true;
-    protected $allowedFields    = [];
+    protected $allowedFields    = [
+        'userId',
+        'clientId',
+        'kw_consumption',
+        'total_amount',
+        'createdAt',
+    ];
 
     protected bool $allowEmptyInserts = false;
     protected bool $updateOnlyChanged = true;
@@ -43,4 +49,20 @@ class BillsModel extends Model
     protected $afterFind      = [];
     protected $beforeDelete   = [];
     protected $afterDelete    = [];
+
+    public function historyForUser(int $userId, int $limit = 25): array
+    {
+        return $this->select('bills.id, bills.userId, bills.clientId, bills.kw_consumption, bills.total_amount, bills.createdAt, clients.name AS client_name, clients.address AS client_address')
+            ->join('clients', 'clients.id = bills.clientId', 'left')
+            ->where('bills.userId', $userId)
+            ->orderBy('bills.createdAt', 'DESC')
+            ->orderBy('bills.id', 'DESC')
+            ->limit($limit)
+            ->findAll();
+    }
+
+    public function countForUser(int $userId): int
+    {
+        return $this->where('userId', $userId)->countAllResults();
+    }
 }

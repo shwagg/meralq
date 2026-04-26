@@ -12,7 +12,14 @@ class BillBreakdownModel extends Model
     protected $returnType       = 'array';
     protected $useSoftDeletes   = false;
     protected $protectFields    = true;
-    protected $allowedFields    = [];
+    protected $allowedFields    = [
+        'bill_id',
+        'range_from',
+        'range_to',
+        'rate_per_kw',
+        'consumption_in_range',
+        'subtotal',
+    ];
 
     protected bool $allowEmptyInserts = false;
     protected bool $updateOnlyChanged = true;
@@ -43,4 +50,24 @@ class BillBreakdownModel extends Model
     protected $afterFind      = [];
     protected $beforeDelete   = [];
     protected $afterDelete    = [];
+
+    public function forBillIds(array $billIds): array
+    {
+        if ($billIds === []) {
+            return [];
+        }
+
+        $rows = $this->whereIn('bill_id', $billIds)
+            ->orderBy('bill_id', 'DESC')
+            ->orderBy('range_from', 'ASC')
+            ->findAll();
+
+        $grouped = [];
+
+        foreach ($rows as $row) {
+            $grouped[(int) $row['bill_id']][] = $row;
+        }
+
+        return $grouped;
+    }
 }

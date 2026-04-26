@@ -3,9 +3,13 @@
 namespace App\Controllers;
 
 use App\Models\AuditLogsModel;
+use App\Models\BillBreakdownModel;
+use App\Models\BillsModel;
+use App\Models\ClientsModel;
 use App\Models\UsersModel;
 use CodeIgniter\HTTP\RedirectResponse;
 use CodeIgniter\HTTP\ResponseInterface;
+use RuntimeException;
 
 class Dashboard extends BaseController
 {
@@ -13,10 +17,19 @@ class Dashboard extends BaseController
 
     private AuditLogsModel $auditLogsModel;
 
+    private ClientsModel $clientsModel;
+
+    private BillsModel $billsModel;
+
+    private BillBreakdownModel $billBreakdownModel;
+
     public function __construct()
     {
-        $this->usersModel     = new UsersModel();
-        $this->auditLogsModel = new AuditLogsModel();
+        $this->usersModel          = new UsersModel();
+        $this->auditLogsModel      = new AuditLogsModel();
+        $this->clientsModel        = new ClientsModel();
+        $this->billsModel          = new BillsModel();
+        $this->billBreakdownModel  = new BillBreakdownModel();
     }
 
     public function index()
@@ -262,6 +275,149 @@ class Dashboard extends BaseController
         return view('dashboard/user', [
             'pageTitle' => 'User Dashboard',
             'user'      => $user,
+            'dashboard' => $this->userDashboardPayload((int) $user['id']),
+        ]);
+    }
+
+    public function userDashboardData(): ResponseInterface|RedirectResponse
+    {
+        $user = $this->requireRole('user');
+
+        if ($user instanceof RedirectResponse) {
+            return $user;
+        }
+
+        return $this->response->setJSON([
+            'status' => 'success',
+            'data'   => $this->userDashboardPayload((int) $user['id']),
+        ]);
+    }
+
+    public function createBill(): ResponseInterface|RedirectResponse
+    {
+        $user = $this->requireRole('user');
+
+        if ($user instanceof RedirectResponse) {
+            return $user;
+        }
+
+        $payload = $this->billPayload();
+
+        $rules = [
+            'client_name'    => 'required|min_length[3]|max_length[120]',
+            'client_address' => 'required|min_length[5]|max_length[255]',
+            'kw_consumption' => 'required|decimal|greater_than[0]',
+        ];
+
+        if (! $this->validateData($payload, $rules)) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'status'  => 'error',
+                'message' => 'Please correct the billing details and try again.',
+                'errors'  => $this->validator->getErrors(),
+            ]);
+        }
+
+        $consumption = round((float) $payload['kw_consumption'], 2);
+        $breakdown   = $this->calculateBillBreakdown($consumption);
+        $totalAmount = array_sum(array_column($breakdown, 'subtotal'));
+        $now         = date('Y-m-d H:i:s');
+        $db          = db_connect();
+
+        $db->transStart();
+
+        $client = $this->clientsModel->firstOwnedByUser(
+            (int) $user['id'],
+            $payload['client_name'],
+            $payload['client_address']
+        );
+
+        if ($client === null) {
+            $clientId = $this->clientsModel->insert([
+                'name'      => $payload['client_name'],
+                'address'   => $payload['client_address'],
+                'createdBy' => (int) $user['id'],
+                'createdAt' => $now,
+            ], true);
+
+            if ($clientId === false) {
+                $db->transRollback();
+
+                return $this->response->setStatusCode(500)->setJSON([
+                    'status'  => 'error',
+                    'message' => 'Unable to save the client record.',
+                ]);
+            }
+        } else {
+            $clientId = (int) $client['id'];
+        }
+
+        $billId = $this->billsModel->insert([
+            'userId'         => (int) $user['id'],
+            'clientId'       => $clientId,
+            'kw_consumption' => number_format($consumption, 2, '.', ''),
+            'total_amount'   => number_format($totalAmount, 2, '.', ''),
+            'createdAt'      => $now,
+        ], true);
+
+        if ($billId === false) {
+            $db->transRollback();
+
+            return $this->response->setStatusCode(500)->setJSON([
+                'status'  => 'error',
+                'message' => 'Unable to save the computed bill.',
+            ]);
+        }
+
+        foreach ($breakdown as $row) {
+            $created = $this->billBreakdownModel->insert([
+                'bill_id'              => (int) $billId,
+                'range_from'           => $row['range_from'],
+                'range_to'             => $row['range_to'],
+                'rate_per_kw'          => number_format($row['rate_per_kw'], 2, '.', ''),
+                'consumption_in_range' => number_format($row['consumption_in_range'], 2, '.', ''),
+                'subtotal'             => number_format($row['subtotal'], 2, '.', ''),
+            ]);
+
+            if ($created === false) {
+                $db->transRollback();
+
+                return $this->response->setStatusCode(500)->setJSON([
+                    'status'  => 'error',
+                    'message' => 'Unable to save the bill breakdown.',
+                ]);
+            }
+        }
+
+        $logged = $this->auditLogsModel->record(
+            (int) $user['id'],
+            'compute_bill',
+            sprintf(
+                'Computed bill for %s at %.2f KW totaling PHP %.2f.',
+                $payload['client_name'],
+                $consumption,
+                $totalAmount
+            )
+        );
+
+        if (! $logged) {
+            $db->transRollback();
+
+            return $this->response->setStatusCode(500)->setJSON([
+                'status'  => 'error',
+                'message' => 'Unable to record the billing action.',
+            ]);
+        }
+
+        $db->transComplete();
+
+        if (! $db->transStatus()) {
+            throw new RuntimeException('Failed to finalize bill transaction.');
+        }
+
+        return $this->response->setStatusCode(201)->setJSON([
+            'status'  => 'success',
+            'message' => 'Electric bill computed successfully.',
+            'data'    => $this->userDashboardPayload((int) $user['id']),
         ]);
     }
 
@@ -276,11 +432,86 @@ class Dashboard extends BaseController
         ];
     }
 
+    private function billPayload(): array
+    {
+        return [
+            'client_name'    => trim((string) $this->request->getPost('client_name')),
+            'client_address' => trim((string) $this->request->getPost('client_address')),
+            'kw_consumption' => trim((string) $this->request->getPost('kw_consumption')),
+        ];
+    }
+
     private function dashboardPayload(): array
     {
         return [
             'users'     => $this->usersModel->listForAdmin(),
             'auditLogs' => $this->auditLogsModel->latestWithUsers(),
         ];
+    }
+
+    private function userDashboardPayload(int $userId): array
+    {
+        $history     = $this->billsModel->historyForUser($userId);
+        $breakdowns  = $this->billBreakdownModel->forBillIds(array_map(static fn(array $bill): int => (int) $bill['id'], $history));
+        $auditLogs   = $this->auditLogsModel->latestForUser($userId);
+
+        foreach ($history as &$bill) {
+            $bill['breakdown'] = $breakdowns[(int) $bill['id']] ?? [];
+        }
+
+        unset($bill);
+
+        return [
+            'metrics' => [
+                'billsCount'   => $this->billsModel->countForUser($userId),
+                'clientsCount' => $this->clientsModel->countForUser($userId),
+                'auditCount'   => count($auditLogs),
+            ],
+            'billingHistory' => $history,
+            'auditLogs'      => $auditLogs,
+            'rates'          => [
+                ['label' => '1 - 200 KW', 'rate' => 10.00],
+                ['label' => '201 - 500 KW', 'rate' => 13.00],
+                ['label' => '501 KW and above', 'rate' => 15.00],
+            ],
+        ];
+    }
+
+    private function calculateBillBreakdown(float $consumption): array
+    {
+        $tiers = [
+            ['range_from' => 1, 'range_to' => 200, 'rate_per_kw' => 10.00],
+            ['range_from' => 201, 'range_to' => 500, 'rate_per_kw' => 13.00],
+            ['range_from' => 501, 'range_to' => 0, 'rate_per_kw' => 15.00],
+        ];
+
+        $remaining = $consumption;
+        $rows      = [];
+
+        foreach ($tiers as $tier) {
+            if ($remaining <= 0) {
+                break;
+            }
+
+            $rangeLimit = $tier['range_to'] === 0
+                ? $remaining
+                : min($remaining, (float) ($tier['range_to'] - $tier['range_from'] + 1));
+
+            if ($rangeLimit <= 0) {
+                continue;
+            }
+
+            $rows[] = [
+                'range_from'           => $tier['range_from'],
+                'range_to'             => $tier['range_to'],
+                'rate_per_kw'          => $tier['rate_per_kw'],
+                'consumption_in_range' => round($rangeLimit, 2),
+                'subtotal'             => round($rangeLimit * $tier['rate_per_kw'], 2),
+            ];
+
+            $remaining -= $rangeLimit;
+        }
+
+        return $rows;
     }
 }

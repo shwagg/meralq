@@ -12,7 +12,12 @@ class ClientsModel extends Model
     protected $returnType       = 'array';
     protected $useSoftDeletes   = false;
     protected $protectFields    = true;
-    protected $allowedFields    = [];
+    protected $allowedFields    = [
+        'name',
+        'address',
+        'createdBy',
+        'createdAt',
+    ];
 
     protected bool $allowEmptyInserts = false;
     protected bool $updateOnlyChanged = true;
@@ -43,4 +48,17 @@ class ClientsModel extends Model
     protected $afterFind      = [];
     protected $beforeDelete   = [];
     protected $afterDelete    = [];
+
+    public function firstOwnedByUser(int $userId, string $name, string $address): ?array
+    {
+        return $this->where('createdBy', $userId)
+            ->where('name', $name)
+            ->where('address', $address)
+            ->first();
+    }
+
+    public function countForUser(int $userId): int
+    {
+        return $this->where('createdBy', $userId)->countAllResults();
+    }
 }
