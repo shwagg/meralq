@@ -17,6 +17,8 @@ $routes->post('/dashboard/admin/users', 'Dashboard::createUser');
 $routes->post('/dashboard/admin/users/(:num)', 'Dashboard::updateUser/$1');
 $routes->delete('/dashboard/admin/users/(:num)', 'Dashboard::deleteUser/$1');
 $routes->get('/dashboard/admin/audit-logs', 'Dashboard::adminAuditLogs');
+$routes->get('/dashboard/admin/audit-trail', 'Dashboard::adminAuditTrail');
 $routes->get('/dashboard/user', 'Dashboard::user');
 $routes->get('/dashboard/user/data', 'Dashboard::userDashboardData');
+$routes->get('/dashboard/user/audit-trail', 'Dashboard::userAuditTrail');
 $routes->post('/dashboard/user/bills', 'Dashboard::createBill');

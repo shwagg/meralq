@@ -222,9 +222,12 @@
 
                     <div class="col-12">
                         <article class="card table-card p-4">
-                            <div class="mb-3">
-                                <h2 class="section-title mb-1">My Action Trail</h2>
-                                <p class="text-secondary mb-0">Recent activity generated under your own user account.</p>
+                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+                                <div>
+                                    <h2 class="section-title mb-1">Latest Action Trail</h2>
+                                    <p class="text-secondary mb-0">Showing your three latest actions. Open the full log for the complete paged history.</p>
+                                </div>
+                                <a class="btn btn-dark" href="<?= site_url('dashboard/user/audit-trail') ?>">View Full Log</a>
                             </div>
 
                             <div class="table-responsive">
@@ -345,13 +348,14 @@
 
             function renderAuditLogs(records) {
                 const tbody = $('#auditLogsBody');
+                const previewLogs = records.slice(0, 3);
 
-                if (!records.length) {
+                if (!previewLogs.length) {
                     tbody.html('<tr><td colspan="3" class="empty-state">No personal audit logs available.</td></tr>');
                     return;
                 }
 
-                tbody.html(records.map(function (record) {
+                tbody.html(previewLogs.map(function (record) {
                     return `
                         <tr>
                             <td><span class="badge text-bg-secondary">${escapeHtml(record.action || '')}</span></td>

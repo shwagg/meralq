@@ -217,10 +217,13 @@
                 <article class="card panel-card p-4">
                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
                         <div>
-                            <h2 class="section-title mb-1">Audit Trail</h2>
-                            <p class="text-secondary mb-0">Recent actions across the system, including account changes and sign-ins.</p>
+                            <h2 class="section-title mb-1">Latest Audit Trail</h2>
+                            <p class="text-secondary mb-0">Showing the three most recent actions. Open the full audit trail for the complete paged history.</p>
                         </div>
-                        <button class="btn btn-outline-dark" type="button" id="refreshLogsButton">Refresh</button>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-outline-dark" type="button" id="refreshLogsButton">Refresh</button>
+                            <a class="btn btn-dark" href="<?= site_url('dashboard/admin/audit-trail') ?>">View Full Trail</a>
+                        </div>
                     </div>
 
                     <div class="table-responsive">
@@ -390,13 +393,14 @@
 
             function renderAuditLogs(data) {
                 const tbody = $('#auditTableBody');
+                const previewLogs = data.slice(0, 3);
 
-                if (!data.length) {
+                if (!previewLogs.length) {
                     tbody.html('<tr><td colspan="4" class="empty-state">No audit entries available.</td></tr>');
                     return;
                 }
 
-                tbody.html(data.map(function (entry) {
+                tbody.html(previewLogs.map(function (entry) {
                     const displayName = entry.fullname ? `${entry.fullname} (${entry.username || 'n/a'})` : 'Unknown user';
 
                     return `

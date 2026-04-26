@@ -264,6 +264,23 @@ class Dashboard extends BaseController
         ]);
     }
 
+    public function adminAuditTrail(): string|RedirectResponse
+    {
+        $admin = $this->requireRole('admin');
+
+        if ($admin instanceof RedirectResponse) {
+            return $admin;
+        }
+
+        $page = max(1, (int) ($this->request->getGet('page') ?? 1));
+
+        return view('dashboard/admin_audit_trail', [
+            'pageTitle'  => 'Admin Audit Trail',
+            'user'       => $admin,
+            'pagination' => $this->auditLogsModel->paginateWithUsers($page),
+        ]);
+    }
+
     public function user(): string|RedirectResponse
     {
         $user = $this->requireRole('user');
@@ -290,6 +307,23 @@ class Dashboard extends BaseController
         return $this->response->setJSON([
             'status' => 'success',
             'data'   => $this->userDashboardPayload((int) $user['id']),
+        ]);
+    }
+
+    public function userAuditTrail(): string|RedirectResponse
+    {
+        $user = $this->requireRole('user');
+
+        if ($user instanceof RedirectResponse) {
+            return $user;
+        }
+
+        $page = max(1, (int) ($this->request->getGet('page') ?? 1));
+
+        return view('dashboard/user_audit_trail', [
+            'pageTitle'  => 'My Action Trail',
+            'user'       => $user,
+            'pagination' => $this->auditLogsModel->paginateForUser((int) $user['id'], $page),
         ]);
     }
 
