@@ -1,18 +1,24 @@
 <?php
 
-namespace App\Models\UsersModel;
+namespace App\Models;
 
 use CodeIgniter\Model;
 
-class  extends Model
+class UsersModel extends Model
 {
     protected $table            = 'users';
     protected $primaryKey       = 'id';
     protected $useAutoIncrement = true;
     protected $returnType       = 'array';
-    protected $useSoftDeletes   = false;
     protected $protectFields    = true;
-    protected $allowedFields    = [];
+    protected $allowedFields    = [
+        'fullname',
+        'username',
+        'email',
+        'password',
+        'role',
+        'createdAt',
+    ];
 
     protected bool $allowEmptyInserts = false;
     protected bool $updateOnlyChanged = true;
@@ -20,27 +26,23 @@ class  extends Model
     protected array $casts = [];
     protected array $castHandlers = [];
 
-    // Dates
     protected $useTimestamps = false;
     protected $dateFormat    = 'datetime';
-    protected $createdField  = 'created_at';
-    protected $updatedField  = 'updated_at';
-    protected $deletedField  = 'deleted_at';
 
-    // Validation
-    protected $validationRules      = [];
-    protected $validationMessages   = [];
-    protected $skipValidation       = false;
-    protected $cleanValidationRules = true;
+    protected $validationRules = [
+        'fullname' => 'required|min_length[3]|max_length[120]',
+        'username' => 'required|min_length[3]|max_length[60]',
+        'email'    => 'required|valid_email|max_length[120]',
+        'password' => 'required',
+        'role'     => 'required|in_list[admin,user]',
+    ];
 
-    // Callbacks
-    protected $allowCallbacks = true;
-    protected $beforeInsert   = [];
-    protected $afterInsert    = [];
-    protected $beforeUpdate   = [];
-    protected $afterUpdate    = [];
-    protected $beforeFind     = [];
-    protected $afterFind      = [];
-    protected $beforeDelete   = [];
-    protected $afterDelete    = [];
+    public function findByCredential(string $credential): ?array
+    {
+        return $this->groupStart()
+            ->where('username', $credential)
+            ->orWhere('email', $credential)
+            ->groupEnd()
+            ->first();
+    }
 }

@@ -6,7 +6,7 @@ use CodeIgniter\Model;
 
 class AuditLogsModel extends Model
 {
-    protected $table            = 'auditlogs';
+    protected $table            = 'audit_logs';
     protected $primaryKey       = 'id';
     protected $useAutoIncrement = true;
     protected $returnType       = 'array';

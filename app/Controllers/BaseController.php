@@ -3,6 +3,7 @@
 namespace App\Controllers;
 
 use CodeIgniter\Controller;
+use CodeIgniter\HTTP\RedirectResponse;
 use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\ResponseInterface;
 use Psr\Log\LoggerInterface;
@@ -25,7 +26,7 @@ abstract class BaseController extends Controller
      * The creation of dynamic property is deprecated in PHP 8.2.
      */
 
-    // protected $session;
+    protected $session;
 
     /**
      * @return void
@@ -34,12 +35,53 @@ abstract class BaseController extends Controller
     {
         // Load here all helpers you want to be available in your controllers that extend BaseController.
         // Caution: Do not put the this below the parent::initController() call below.
-        // $this->helpers = ['form', 'url'];
+        $this->helpers = ['form', 'url'];
 
         // Caution: Do not edit this line.
         parent::initController($request, $response, $logger);
 
         // Preload any models, libraries, etc, here.
-        // $this->session = service('session');
+        $this->session = service('session');
+    }
+
+    protected function currentUser(): ?array
+    {
+        if (! $this->session->get('isLoggedIn')) {
+            return null;
+        }
+
+        return [
+            'id'       => (int) $this->session->get('userId'),
+            'fullname' => (string) $this->session->get('fullname'),
+            'username' => (string) $this->session->get('username'),
+            'email'    => (string) $this->session->get('email'),
+            'role'     => (string) $this->session->get('role'),
+        ];
+    }
+
+    protected function redirectAuthenticatedUser(): ?RedirectResponse
+    {
+        $user = $this->currentUser();
+
+        if ($user === null) {
+            return null;
+        }
+
+        return redirect()->to($user['role'] === 'admin' ? '/dashboard/admin' : '/dashboard/user');
+    }
+
+    protected function requireRole(string $role): RedirectResponse|array
+    {
+        $user = $this->currentUser();
+
+        if ($user === null) {
+            return redirect()->to('/login');
+        }
+
+        if ($user['role'] !== $role) {
+            return redirect()->to($user['role'] === 'admin' ? '/dashboard/admin' : '/dashboard/user');
+        }
+
+        return $user;
     }
 }

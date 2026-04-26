@@ -6,7 +6,7 @@ use CodeIgniter\Model;
 
 class BillBreakdownModel extends Model
 {
-    protected $table            = 'billbreakdowns';
+    protected $table            = 'bill_breakdown';
     protected $primaryKey       = 'id';
     protected $useAutoIncrement = true;
     protected $returnType       = 'array';
