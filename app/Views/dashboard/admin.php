@@ -88,6 +88,21 @@
             font-size: 0.85rem;
             color: #6d7a8d;
         }
+
+        .pagination-summary {
+            font-size: 0.9rem;
+            color: #637186;
+        }
+
+        .pagination .page-link {
+            color: #10213a;
+        }
+
+        .pagination .page-item.active .page-link {
+            background-color: #10213a;
+            border-color: #10213a;
+            color: #fff;
+        }
     </style>
 </head>
 <body>
@@ -212,6 +227,13 @@
                             <tbody id="usersTableBody"></tbody>
                         </table>
                     </div>
+
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mt-3">
+                        <div class="pagination-summary" id="usersPaginationSummary"></div>
+                        <nav aria-label="Registered users pages">
+                            <ul class="pagination pagination-sm mb-0" id="usersPagination"></ul>
+                        </nav>
+                    </div>
                 </article>
 
                 <article class="card panel-card p-4">
@@ -252,6 +274,9 @@
         $(function () {
             let users = initialUsers;
             let auditLogs = initialAuditLogs;
+            let currentUsersPage = 1;
+
+            const usersPerPage = 3;
 
             renderUsers(users);
             renderAuditLogs(auditLogs);
@@ -361,13 +386,25 @@
 
             function renderUsers(data) {
                 const tbody = $('#usersTableBody');
+                const pagination = $('#usersPagination');
+                const summary = $('#usersPaginationSummary');
 
                 if (!data.length) {
+                    currentUsersPage = 1;
                     tbody.html('<tr><td colspan="6" class="empty-state">No user accounts found.</td></tr>');
+                    pagination.empty();
+                    summary.text('');
                     return;
                 }
 
-                tbody.html(data.map(function (entry) {
+                const totalPages = Math.max(1, Math.ceil(data.length / usersPerPage));
+                currentUsersPage = Math.min(Math.max(currentUsersPage, 1), totalPages);
+
+                const startIndex = (currentUsersPage - 1) * usersPerPage;
+                const pageData = data.slice(startIndex, startIndex + usersPerPage);
+                const endIndex = startIndex + pageData.length;
+
+                tbody.html(pageData.map(function (entry) {
                     const roleClass = entry.role === 'admin' ? 'text-bg-dark' : 'text-bg-warning';
                     const deleteDisabled = Number(entry.id) === currentUserId ? 'disabled' : '';
 
@@ -389,6 +426,42 @@
                         </tr>
                     `;
                 }).join(''));
+
+                summary.text(`Showing ${startIndex + 1}-${endIndex} of ${data.length} users`);
+                renderUsersPagination(totalPages);
+            }
+
+            function renderUsersPagination(totalPages) {
+                const pagination = $('#usersPagination');
+
+                if (totalPages <= 1) {
+                    pagination.empty();
+                    return;
+                }
+
+                const items = [];
+
+                items.push(buildPaginationItem('Previous', currentUsersPage - 1, currentUsersPage === 1));
+
+                for (let page = 1; page <= totalPages; page += 1) {
+                    items.push(buildPaginationItem(String(page), page, false, page === currentUsersPage));
+                }
+
+                items.push(buildPaginationItem('Next', currentUsersPage + 1, currentUsersPage === totalPages));
+
+                pagination.html(items.join(''));
+            }
+
+            function buildPaginationItem(label, page, disabled, active = false) {
+                const disabledClass = disabled ? ' disabled' : '';
+                const activeClass = active ? ' active' : '';
+                const ariaCurrent = active ? ' aria-current="page"' : '';
+
+                return `
+                    <li class="page-item${disabledClass}${activeClass}">
+                        <button class="page-link" type="button" data-page="${page}"${ariaCurrent} ${disabled ? 'tabindex="-1"' : ''}>${label}</button>
+                    </li>
+                `;
             }
 
             function renderAuditLogs(data) {
@@ -476,6 +549,17 @@
                     .replaceAll('"', '&quot;')
                     .replaceAll("'", '&#039;');
             }
+
+            $('#usersPagination').on('click', '[data-page]', function () {
+                const page = Number($(this).data('page'));
+
+                if (!Number.isInteger(page) || page < 1 || page === currentUsersPage) {
+                    return;
+                }
+
+                currentUsersPage = page;
+                renderUsers(users);
+            });
         });
     </script>
 </body>
